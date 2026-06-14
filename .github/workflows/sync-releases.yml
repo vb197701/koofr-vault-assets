@@ -31,7 +31,7 @@ jobs:
       - name: Run sync
         env:
           # ✅ 通用化配置：在这里修改
-          UPSTREAM_REPO: semicons/java_oci_manage  # 改成你要 fork 的项目
+          UPSTREAM_REPO: koofr/vault
           TARGET_REPO: ${{ github.repository }}
           MAX_WORKERS: 5
           INCREMENTAL_SYNC: true
