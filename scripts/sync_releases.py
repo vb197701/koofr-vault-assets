@@ -59,6 +59,14 @@ def get_releases(repo):
     
     return releases
 
+def is_valid_tag(tag: str) -> bool:
+    """简单校验：跳过包含空格或为空的 tag"""
+    if not tag:
+        return False
+    if " " in tag:
+        return False
+    return True
+
 def release_exists(tag, repo):
     """Check if release exists"""
     r = sh(f'gh release view "{tag}" -R "{repo}" >/dev/null 2>&1', check=False)
@@ -312,7 +320,7 @@ def main():
     if INCREMENTAL_SYNC:
         state_file = Path("/tmp/sync-state.json")
         if state_file.exists():
-            last_tag = json.loads(state_file.read()).get("last_sync_tag")
+            last_tag = json.loads(read_text()).get("last_sync_tag")
             if last_tag:
                 upstream = [r for r in upstream if r["tag_name"] != last_tag and r["tag_name"] > last_tag]
                 print(f"Incremental sync: skipping releases before {last_tag}")
@@ -325,6 +333,11 @@ def main():
         tag = rel["tag_name"]
         name = rel["name"]
         body = f"Synced from upstream {UPSTREAM}"
+
+        # ✅ 新增：跳过非法 tag，避免 422 错误
+        if not is_valid_tag(tag):
+            print(f"⚠ Skipping release '{name}' with invalid tag: '{tag}'")
+            continue
         
         print(f"\n[{idx}/{len(upstream)}] Processing release {tag}")
         
@@ -348,8 +361,12 @@ def main():
     # ✅ 保存同步状态（用于增量同步）
     if upstream and INCREMENTAL_SYNC:
         state_file = Path("/tmp/sync-state.json")
-        state_file.write(json.dumps({"last_sync_tag": upstream[0]["tag_name"]}))
-        print(f"\nSaved sync state: last_sync_tag = {upstream[0]['tag_name']}")
+        last_synced_tag = upstream[-1]["tag_name"]  # 列表当前顺序的“最后一个”
+        state_file.write_text(
+            json.dumps({"last_sync_tag": last_synced_tag}),
+            encoding="utf-8"
+        )
+        print(f"\nSaved sync state: last_sync_tag = {last_synced_tag}")
     
     print("\n" + "=" * 60)
     print(f"Sync complete:")
